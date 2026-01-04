@@ -137,29 +137,22 @@ async def image_result_postprocessor_v3(data):
         itemFuture = item.item_future
         pipeline = itemFuture['pipeline']
         result = itemFuture[item.input_names[0]]
+        # v3 API: do not rely on category_config for filtering/renaming.
+        # Preserve the model output shape (category -> list of tags/tuples) as-is.
         toReturn = {}
-        for category, tags in result.items():
-            if category not in category_config:
-                continue
-            toReturn[category] = []
-            for tag in tags:
-                if isinstance(tag, tuple):
-                    tagname, confidence = tag
-                    if tagname not in category_config[category]:
-                        continue
-                    
-                    tag_threshold = float(get_or_default(category_config[category][tagname], 'TagThreshold', 0.5))
-                    renamed_tag = category_config[category][tagname]['RenamedTag']
-
-                    if not post_processing_config["use_category_image_thresholds"]:
-                        toReturn[category].append((renamed_tag, confidence))
-                    elif confidence >= tag_threshold:
-                        toReturn[category].append((renamed_tag, confidence))
+        if isinstance(result, dict):
+            for category, tags in result.items():
+                if tags is None:
+                    toReturn[category] = []
+                    continue
+                if isinstance(tags, (list, tuple)):
+                    toReturn[category] = list(tags)
                 else:
-                    if tag not in category_config[category]:
-                        continue
-                    renamed_tag = category_config[category][tag]['RenamedTag']
-                    toReturn[category].append(renamed_tag)
+                    # Defensive: if a backend returns a single tag, wrap it.
+                    toReturn[category] = [tags]
+        else:
+            # Defensive: unexpected shape, return as-is.
+            toReturn = result
 
         root_future = getattr(itemFuture, "root_future", itemFuture)
         metrics_source = getattr(root_future, "_pipeline_metrics", {}) or {}
