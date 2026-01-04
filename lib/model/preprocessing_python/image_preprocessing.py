@@ -69,6 +69,49 @@ _ensure_deffcode_log_filter()
 
 _ZIP_PATH_PATTERN = re.compile(r"\.zip(?=$|[\\/])", re.IGNORECASE)
 
+_URL_SCHEME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+
+
+def _normalize_video_source(video_path: str) -> str:
+    if not isinstance(video_path, str):
+        return video_path
+
+    candidate = video_path.strip()
+    if not candidate:
+        return candidate
+
+    # On Linux containers, clients sometimes send Windows-style paths.
+    # Only rewrite if it results in an existing path to stay conservative.
+    if os.name != "nt" and "\\" in candidate:
+        rewritten = candidate.replace("\\", "/")
+        if os.path.exists(rewritten):
+            return rewritten
+
+    return candidate
+
+
+def _validate_local_video_source(video_path: str) -> str:
+    normalized = _normalize_video_source(video_path)
+
+    if not normalized or not isinstance(normalized, str):
+        raise FileNotFoundError("Video path is empty or invalid")
+
+    # Allow URL-like sources (rtsp/http/etc) without local existence checks.
+    if _URL_SCHEME_PATTERN.match(normalized):
+        return normalized
+
+    if not os.path.exists(normalized):
+        raise FileNotFoundError(
+            f"Video file not found: '{normalized}'. "
+            "If you're running the server in Docker, make sure the host folder containing the video is mounted into the container, "
+            "and path mapping configured in AI Overhaul"
+        )
+
+    if not os.path.isfile(normalized):
+        raise FileNotFoundError(f"Video path is not a file: '{normalized}'")
+
+    return normalized
+
 
 def _is_rocm_build() -> bool:
     return bool(getattr(torch.version, "hip", None))
@@ -216,6 +259,7 @@ def _ensure_torch_tensor(
 
 #TODO: SEE WHICH IS BETTER
 def get_video_duration_torchvision(video_path):
+    video_path = _validate_local_video_source(video_path)
     video = torchvision.io.VideoReader(video_path, "video")
     metadata = video.get_metadata()
     duration = metadata['video']['duration'][0]
@@ -223,6 +267,7 @@ def get_video_duration_torchvision(video_path):
 
 def get_video_duration_deffcode(video_path):
 
+    video_path = _validate_local_video_source(video_path)
     sourcer = Sourcer(video_path).probe_stream()
     try:
         metadata = sourcer.retrieve_metadata()
@@ -252,6 +297,7 @@ def get_video_duration_deffcode(video_path):
 def get_video_duration_decord(video_path):
     if not _HAS_DECORD:
         raise RuntimeError("decord is not installed; install decord to use this function")
+    video_path = _validate_local_video_source(video_path)
     vr = decord.VideoReader(video_path, ctx=decord.cpu(0))
     num_frames = len(vr)
     frame_rate = vr.get_avg_fps()
@@ -361,6 +407,7 @@ def preprocess_video(
     Preprocess video using decord (CPU-based).
     Falls back to deffcode if decord is not available.
     """
+    video_path = _validate_local_video_source(video_path)
     if not _HAS_DECORD:
         _LOGGER.warning("decord not available, falling back to deffcode CPU preprocessing")
         yield from preprocess_video_deffcode(
@@ -514,6 +561,7 @@ def preprocess_video_deffcode_auto(
     This approach maximizes overall throughput by using GPU resources where they provide 
     the most benefit while avoiding GPU contention when AI inference is the bottleneck.
     """
+    video_path = _validate_local_video_source(video_path)
     if device:
         target_device = torch.device(device)
     else:
@@ -615,6 +663,7 @@ def preprocess_video_deffcode(
     Preprocess video using CPU-based DeFFcode with FFmpeg filtering.
     Uses FFmpeg select filter for efficient frame skipping.
     """
+    video_path = _validate_local_video_source(video_path)
     if device:
         device = torch.device(device)
     else:
@@ -718,6 +767,7 @@ def preprocess_video_deffcode_gpu(
     Uses GPU-based decoding for maximum performance.
     Resizing is handled by PyTorch transforms for consistency with CPU preprocessing.
     """
+    video_path = _validate_local_video_source(video_path)
     if device:
         device = torch.device(device)
     else:
