@@ -1,9 +1,8 @@
 -r requirements-base.txt
 pillow
 # AMD GPU requirements (Linux with ROCm)
-https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/torch-2.6.0%2Brocm6.4.2.git76481f7c-cp312-cp312-linux_x86_64.whl
-https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/torchvision-0.21.0%2Brocm6.4.2.git4040d51f-cp312-cp312-linux_x86_64.whl
-https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/pytorch_triton_rocm-3.2.0%2Brocm6.4.2.git7e948ebf-cp312-cp312-linux_x86_64.whl
-https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/torchaudio-2.6.0%2Brocm6.4.2.gitd8831425-cp312-cp312-linux_x86_64.whl
+https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/torch-2.10.0.dev20260113+rocm7.2.0.lw.gitdea53f5b-cp310-cp310-linux_x86_64.whl
+https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/torchvision-0.25.0+rocm7.2.0.gitaa35ca19-cp312-cp312-linux_x86_64.whl
+https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.2/triton-3.5.1+rocm7.2.0.gita272dfa8-cp312-cp312-linux_x86_64.whl
 
 # Common dependencies
